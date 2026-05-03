@@ -1,12 +1,12 @@
 [package]
 name = "mingaurm/noisepp"
-version = "1.0.1"
+version = "2.0.0"
 description = "A noise module that adds noise types and features that the math.noise function doesn't have."
 repository = "https://github.com/MingauRM/noisepp"
 license = "None"
 authors = ["Miguel Rossetti Mocellin"]
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"
-exclude = ["rokit.toml", "selene.toml", "README.md"]
+exclude = ["rokit.toml", "selene.toml", "README.md", ".gitignore", ".vscode/"]
 
 [dependencies]

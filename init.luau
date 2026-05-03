@@ -1,17 +1,22 @@
 --!strict
---!native
 --!optimize 2
+--!native
+
+-- Utils
 
 local function _gradient(h: number): Vector2
 	return Vector2.new(math.cos(h), math.sin(h))
 end
+
 local function _smoothstep(t: number): number
 	return t * t * t * (t * (t * 6 - 15) + 10)
 end
+
 local function _rand(x: number, y: number, seed: number): number
 	local n = math.sin(x * 127.1 + y * 311.7 + seed * 74.7) * 43758.5453
 	return n - math.floor(n)
 end
+
 local function _perlin2D(x: number, y: number, seed: number): number
 	local GRID_SIZE = 16
 
@@ -34,114 +39,168 @@ local function _perlin2D(x: number, y: number, seed: number): number
 
 	return math.lerp(math.lerp(dot00, dot10, u), math.lerp(dot01, dot11, u), v)
 end
+
 local function _cell_hash(x, y, seed)
 	return _rand(x, y, seed)
 end
 
+-- Noise class
 local NoisePP = {}
+local NoiseMethods = {}
+NoisePP.__index = NoiseMethods
 
-local SEED = 0
-local FREQUENCY = 1
-local GAIN = 0.5
-local OCTAVES = 4
+-- Domain warp class
+local Warp = {}
+local WarpMethods = {}
+Warp.__index = WarpMethods
 
---// Setting parameters
+-- Constructs a new Noise object.
+function NoisePP.new(params: Parameters): Noise
+	local self = setmetatable({}, NoisePP)
 
-NoisePP.set_seed = function(seed: number)
-	SEED = seed or 0
+	self.Seed = params.Seed
+	self.Frequency = params.Frequency
+	self.Gain = params.Gain
+	self.Octaves = params.Octaves
+
+	return self :: Noise
 end
 
-NoisePP.set_gain = function(gain: number)
-	GAIN = gain or 0.5
+-- Constructs a new domain warp object.
+function NoisePP.warp(params: Parameters): DomainWarp
+	local self = setmetatable({}, Warp)
+
+	self.Seed = params.Seed or 0
+	self.Frequency = params.Frequency or 1.0
+	self.Gain = params.Gain or 0.6
+	self.Octaves = params.Octaves or 1
+
+	return self :: DomainWarp
 end
 
-NoisePP.set_frequency = function(frequency: number)
-	FREQUENCY = frequency or 1
+----- Noise methods -----
+
+function NoiseMethods.SetSeed(self: Noise, seed: number): ()
+	self.Seed = seed
 end
 
-NoisePP.set_octaves = function(octaves: number)
-	OCTAVES = octaves or 4
+function NoiseMethods.SetFrequency(self: Noise, freq: number): ()
+	self.Frequency = freq
 end
 
--- Noises
-
-NoisePP.perlin = function(x: number, y: number, seed: number?): number
-	return _perlin2D(x, y, seed or SEED)
+function NoiseMethods.SetGain(self: Noise, gain: number): ()
+	self.Gain = gain
 end
 
-NoisePP.fbm = function(x: number, y: number, seed: number?, octaves: number?, frequency: number?): number
-	local sum = 0
-	local amp = 1
-	local freq = frequency or FREQUENCY
-	local max = 0
+function NoiseMethods.SetOctaves(self: Noise, octaves: number): ()
+	self.Octaves = octaves
+end
 
-	local o = octaves or OCTAVES
+function NoiseMethods.SetParameters(self: Noise, params: Parameters)
+	self.Seed = params.Seed or self.Seed
+	self.Frequency = params.Frequency or self.Frequency
+	self.Gain = params.Gain or self.Gain
+	self.Octaves = params.Octaves or self.Octaves
+end
 
-	for _i = 1, o do
-		sum += NoisePP.perlin(x * freq, y * freq, seed) * amp
-		max += amp
+function NoiseMethods.Perlin(self: Noise, x: number, y: number): number
+	local freq = self.Frequency or 1.0
+	local seed = self.Seed or 0
 
-		amp *= GAIN
-		freq *= 2.01
+	return _perlin2D(x * freq, y * freq, seed)
+end
+
+function NoiseMethods.Fbm(self: Noise, x: number, y: number): number
+	local Seed = self.Seed or 0
+	local Frequency = self.Frequency or 1.0
+	local Gain = self.Gain or 0.6
+	local Octaves = self.Octaves or 1
+
+	local result = 0
+
+	local ampl = 1.0
+	local maxAmpl = ampl
+
+	for _ = 1, Octaves do
+		result += _perlin2D(x, y, Seed) * ampl
+
+		Frequency *= 2.01
+		ampl *= Gain
+
+		maxAmpl += ampl
 	end
 
-	return sum / max
+	return result / maxAmpl
 end
 
-NoisePP.ridged = function(x: number, y: number, seed: number?, octaves: number, frequency: number): number
-	local sum = 0
-	local amp = 1
-	local freq = frequency or FREQUENCY
-	local max = 0
+function NoiseMethods.Ridged(self: Noise, x: number, y: number): number
+	local Seed = self.Seed or 0
+	local Frequency = self.Frequency or 1.0
+	local Gain = self.Gain or 0.6
+	local Octaves = self.Octaves or 1
+
+	local result = 0
+
+	local ampl = 1.0
+	local maxAmpl = ampl
+
 	local weight = 1
 
-	local o = octaves or OCTAVES
+	for _ = 1, Octaves do
+		local noise = _perlin2D(x, y, Seed)
 
-	for _i = 1, o do
-		local n = NoisePP.perlin(x * freq, y * freq, seed)
+		noise = 1 - math.abs(noise)
+		noise *= noise
+		noise *= weight
 
-		n = 1 - math.abs(n)
-		n *= n
-		n *= weight
+		weight = math.clamp(noise * 2, 0, 1)
 
-		weight = math.clamp(n * 2, 0, 1)
+		result += noise
 
-		sum += n * amp
-		max += amp
+		Frequency *= 2.01
+		ampl *= Gain
 
-		amp *= GAIN
-		freq *= 2.01
+		maxAmpl += ampl
 	end
 
-	return sum / max
+	return result / maxAmpl
 end
 
-NoisePP.billow = function(x: number, y: number, seed: number?, octaves: number, frequency: number): number
-	local sum = 0
-	local amp = 1
-	local freq = frequency or FREQUENCY
-	local max = 0
+function NoiseMethods.Billow(self: Noise, x: number, y: number): number
+	local Seed = self.Seed or 0
+	local Frequency = self.Frequency or 1.0
+	local Gain = self.Gain or 0.6
+	local Octaves = self.Octaves or 1
 
-	local o = octaves or OCTAVES
+	local result = 0
 
-	for _i = 1, o do
-		local n = NoisePP.perlin(x * freq, y * freq, seed)
+	local ampl = 1.0
+	local maxAmpl = ampl
 
-		n = math.abs(n)
-		n = n * 2 - 1
+	for _ = 1, Octaves do
+		local noise = _perlin2D(x * Frequency, y * Frequency, Seed)
 
-		sum += n * amp
-		max += amp
+		noise = math.abs(noise)
+		noise = noise * 2 - 1
 
-		amp *= GAIN
-		freq *= 2.01
+		result += noise * ampl
+		maxAmpl += ampl
+
+		ampl *= Gain
+		Frequency *= 2.01
 	end
 
-	return sum / max
+	return result / maxAmpl
 end
 
-NoisePP.cellular = function(x: number, y: number, seed: number?): number
-	seed = seed or SEED
+function NoiseMethods.Cellular(self: Noise, x, y): number
+	local Seed = self.Seed or 0
+	local Frequency = self.Frequency or 1.0
+	local Gain = self.Gain or 0.6
+	local Octaves = self.Octaves or 1
+
+	local ampl = 1
+	local maxAmpl = ampl
 
 	local xi = math.floor(x)
 	local yi = math.floor(y)
@@ -149,123 +208,119 @@ NoisePP.cellular = function(x: number, y: number, seed: number?): number
 	local f1 = math.huge
 	local f2 = math.huge
 
-	for oy = -1, 1 do
-		for ox = -1, 1 do
-			local cx = xi + ox
-			local cy = yi + oy
+	for _ = 1, Octaves do
+		for oy = -1, 1 do
+			for ox = -1, 1 do
+				local cx = xi + ox
+				local cy = yi + oy
 
-			local px = cx + _rand(cx, cy, seed or SEED)
-			local py = cy + _rand(cx + 100, cy + 100, seed or SEED)
+				local px = cx + _rand(cx * Frequency, cy * Frequency, Seed) * ampl
+				local py = cy + _rand((cx + 100) * Frequency, (cy + 100) * Frequency, Seed) * ampl
 
-			local dx = px - x
-			local dy = py - y
+				local dx = px - x
+				local dy = py - y
 
-			local dist = dx * dx + dy * dy
+				local dist = dx * dx + dy * dy
 
-			if dist < f1 then
-				f2 = f1
-				f1 = dist
-			elseif dist < f2 then
-				f2 = dist
+				if dist < f1 then
+					f2 = f1
+					f1 = dist
+				elseif dist < f2 then
+					f2 = dist
+				end
 			end
 		end
-	end
-	return math.sqrt(f2) - math.sqrt(f1)
-end
 
-NoisePP.turbulence = function(x: number, y: number, seed: number?, octaves: number, frequency: number): number
-	local sum = 0
-	local amp = 1
-	local freq = frequency or FREQUENCY
-	local max = 0
+		ampl *= Gain
+		Frequency *= 2.01
 
-	local o = octaves or OCTAVES
-
-	for _i = 1, o do
-		local n = NoisePP.perlin(x * freq, y * freq, seed)
-
-		sum += math.abs(n) * amp
-		max += amp
-
-		amp *= GAIN
-		freq *= 2.01
+		maxAmpl += ampl
 	end
 
-	return sum / max
+	return (math.sqrt(f2) - math.sqrt(f1)) / maxAmpl
 end
 
-NoisePP.marble = function(x: number, y: number, seed: number?, octaves: number, frequency: number): number
-	local n = NoisePP.fbm(x, y, seed, octaves, frequency)
+function NoiseMethods.Turbulence(self: Noise, x: number, y: number): number
+	local Seed = self.Seed or 0
+	local Frequency = self.Frequency or 1.0
+	local Gain = self.Gain or 0.6
+	local Octaves = self.Octaves or 1
+
+	local result = 0
+
+	local ampl = 1
+	local maxAmpl = ampl
+
+	for _i = 1, Octaves do
+		local n = self:Perlin(x * Frequency, y * Frequency, Seed)
+
+		result += math.abs(n) * ampl
+
+		ampl *= Gain
+		Frequency *= 2.01
+
+		maxAmpl += ampl
+	end
+
+	return result / maxAmpl
+end
+
+function NoiseMethods.Marble(self: Noise, x: number, y: number): number
+	local n = self:Fbm(x, y)
 	return math.sin((x * 0.1 + n * 5))
 end
 
-NoisePP.terrace = function(
-	x: number,
-	y: number,
-	steps: number,
-	seed: number?,
-	octaves: number,
-	frequency: number
-): number
-	local n = NoisePP.fbm(x, y, seed, octaves, frequency)
+function NoiseMethods.Terrace(self: Noise, x: number, y: number, steps: number): number
+	local n = self:Fbm(x, y)
 	return math.floor(n * steps) / steps
 end
 
-NoisePP.white = function(x: number, y: number, seed: number?): number
-	return _rand(x, y, seed or SEED)
+NoisePP.white = function(self: Noise, x: number, y: number): number
+	return _rand(x, y, self.Seed or 0)
 end
 
-local warp = {}
-warp.__index = warp
+----- Domain Warp methods -----
 
-NoisePP.warp = function(seed: number?)
-	local self = setmetatable({}, warp)
-
-	self.Seed = seed or 0
-	self.Frequency = 0.025
-	self.Amplitude = 20
-
-	return self
-end
-
-function warp.Apply(self: DomainWarp, x: number, y: number): (number, number)
-	local wx = NoisePP.fbm(x * self.Frequency, y * self.Frequency, self.Seed)
-	local wy = NoisePP.fbm(x * self.Frequency + 100, y * self.Frequency + 100, self.Seed)
-
-	wx = x + wx * self.Amplitude
-	wy = y + wy * self.Amplitude
-
-	return wx, wy
-end
-
-function warp.Octaved(self: DomainWarp, x: number, y: number, octaves: number, gain: number?): (number, number)
+function Warp.Apply(self: DomainWarp, x: number, y: number): (number, number)
 	local wx, wy = x, y
 
-	local freq = self.Frequency
-	local amp = self.Amplitude
-	local g = gain or 0.5
+	local Seed = self.Seed or 0
+	local Frequency = self.Frequency or 1.0
+	local Gain = self.Gain or 0.6
+	local Octaves = self.Octaves or 1
 
-	for _i = 1, octaves do
-		local tx = NoisePP.fbm(wx * freq, wy * freq, self.Seed)
-		local ty = NoisePP.fbm(wx * freq + 100, wy * freq + 100, self.Seed)
+	local ampl = 1.0
 
-		wx += (tx or wx) * amp
-		wy += (ty or wy) * amp
+	local noise = NoisePP.new({
+		Seed = Seed,
+		Frequency = Frequency,
+		Gain = Gain,
+		Octaves = Octaves,
+	})
 
-		freq *= 2.01
-		amp *= g
-	end
+	local tx = noise:Fbm(wx, wy)
+	local ty = noise:Fbm(wx + 100, wy + 100)
+
+	wx += (tx or wx) * ampl
+	wy += (ty or wy) * ampl
 
 	return wx, wy
 end
 
-export type DomainWarp = {
-	Seed: number,
-	Frequency: number,
-	Amplitude: number,
-	Apply: (self: DomainWarp, x: number, y: number) -> (number, number),
-	Octaved: (self: DomainWarp, x: number, y: number, Octaves: number, Gain: number?) -> (number, number),
+-- Noise class type
+type NoisePP = {
+	new: (params: Parameters) -> Noise,
+	warp: (params: Parameters) -> DomainWarp,
 }
-export type NoisePP = typeof(NoisePP)
+
+type Noise = Parameters & typeof(NoiseMethods)
+type DomainWarp = Parameters & typeof(WarpMethods)
+
+type Parameters = {
+	Seed: number?,
+	Frequency: number?,
+	Gain: number?,
+	Octaves: number?,
+}
 
 return NoisePP :: NoisePP
