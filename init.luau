@@ -55,8 +55,14 @@ local WarpMethods = {}
 Warp.__index = WarpMethods
 
 -- Constructs a new Noise object.
-function NoisePP.new(params: Parameters): Noise
+function NoisePP.new(params: Parameters?): Noise
 	local self = setmetatable({}, NoisePP)
+	params = params or {
+		Seed = 0,
+		Frequency = 1,
+		Gain = 0.6,
+		Octaves = 1,
+	}
 
 	self.Seed = params.Seed
 	self.Frequency = params.Frequency
@@ -67,8 +73,14 @@ function NoisePP.new(params: Parameters): Noise
 end
 
 -- Constructs a new domain warp object.
-function NoisePP.warp(params: Parameters): DomainWarp
+function NoisePP.warp(params: Parameters?): DomainWarp
 	local self = setmetatable({}, Warp)
+	params = params or {
+		Seed = 0,
+		Frequency = 1,
+		Gain = 0.6,
+		Octaves = 1,
+	}
 
 	self.Seed = params.Seed or 0
 	self.Frequency = params.Frequency or 1.0
@@ -305,6 +317,29 @@ function Warp.Apply(self: DomainWarp, x: number, y: number): (number, number)
 	wy += (ty or wy) * ampl
 
 	return wx, wy
+end
+
+function WarpMethods.SetSeed(self: DomainWarp, seed: number): ()
+	self.Seed = seed
+end
+
+function WarpMethods.SetFrequency(self: DomainWarp, freq: number): ()
+	self.Frequency = freq
+end
+
+function WarpMethods.SetGain(self: DomainWarp, gain: number): ()
+	self.Gain = gain
+end
+
+function WarpMethods.SetOctaves(self: DomainWarp, octaves: number): ()
+	self.Octaves = octaves
+end
+
+function WarpMethods.SetParameters(self: DomainWarp, params: Parameters)
+	self.Seed = params.Seed or self.Seed
+	self.Frequency = params.Frequency or self.Frequency
+	self.Gain = params.Gain or self.Gain
+	self.Octaves = params.Octaves or self.Octaves
 end
 
 -- Noise class type

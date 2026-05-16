@@ -1,6 +1,6 @@
 [package]
 name = "mingaurm/noisepp"
-version = "2.0.0"
+version = "2.0.1"
 description = "A noise module that adds noise types and features that the math.noise function doesn't have."
 repository = "https://github.com/MingauRM/noisepp"
 license = "None"

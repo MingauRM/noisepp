@@ -11,16 +11,14 @@ Then, require it from any script.
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local noisepp = require(ReplicatedStorage.Packages.noisepp)
 
+    local SEED = tick()
     local x, y = 1, 5
 
-    local Noise = noisepp.new({
-        Seed = tick(),
-        Frequency = 0.5,
-        Gain = 0.6,
-        Octaves = 4
-    }) -- The arguments that aren't passed are replaced by the defaults.
+    noisepp.set_octaves(4)
+    noisepp.set_frequency(0.25)
+    noisepp.set_gain(0.6)
 
-    print(Noise:Fbm(x, y))
+    print(noisepp.fbm(x, y, SEED))
 
 ## License
 
