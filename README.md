@@ -4,7 +4,7 @@
 
 ## Usage
 
-Firstly, install NoisePP via [Wally package manager]([https://wally.run](https://wally.run/package/mingaurm/noisepp)) or from this repository.
+Firstly, install NoisePP via [Wally package manager](https://wally.run/package/mingaurm/noisepp) or from this repository.
 
 Then, require it from any script.
 
