@@ -4,21 +4,18 @@
 
 ## Usage
 
-Firstly, install NoisePP via [Wally package manager](https://wally.run) or from this repository.
+Firstly, install NoisePP via [Wally package manager]([https://wally.run](https://wally.run/package/mingaurm/noisepp)) or from this repository.
 
 Then, require it from any script.
 
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local noisepp = require(ReplicatedStorage.Packages.noisepp)
 
-    local SEED = tick()
+    local noise = noisepp.new()
     local x, y = 1, 5
 
-    noisepp.set_octaves(4)
-    noisepp.set_frequency(0.25)
-    noisepp.set_gain(0.6)
-
-    print(noisepp.fbm(x, y, SEED))
+    noise:SetSeed(tick())
+    print(noise:Fbm(x, y))
 
 ## License
 
